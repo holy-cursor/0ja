@@ -1,0 +1,24 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "NEXT_PUBLIC_PAY_SPLITTER_CONTRACT_ADDRESS": "@pay_splitter_contract_address",
+    "NEXT_PUBLIC_BASE_RPC_URL": "@base_rpc_url",
+    "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL": "@base_sepolia_rpc_url",
+    "NEXT_PUBLIC_USDC_BASE": "@usdc_base_address",
+    "NEXT_PUBLIC_USDC_BASE_SEPOLIA": "@usdc_base_sepolia_address",
+    "PLATFORM_RECEIVER": "@platform_receiver_address",
+    "PRIVATE_KEY": "@private_key",
+    "BASESCAN_API_KEY": "@basescan_api_key"
+  }
+}

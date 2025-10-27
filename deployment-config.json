@@ -1,0 +1,7 @@
+{
+  "contractAddress": "0x985DDCDeA0362D6eeCE5c2f96d33b4F06b41ca89",
+  "platformReceiver": "0x070e0dF20b5eDf669292342F1F3af114fB98c43d",
+  "usdcToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "platformFeeBps": 200,
+  "deployedAt": "2025-10-18T10:36:55.785Z"
+}

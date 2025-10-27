@@ -1,0 +1,56 @@
+@import '@rainbow-me/rainbowkit/styles.css';
+@import "tailwindcss";
+
+:root {
+  /* Clean Color Palette */
+  --coral: #FF5A76;
+  --dark-blue: #0B3D91;
+  --white: #FFFFFF;
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+}
+
+/* Dark mode */
+.dark {
+  --coral: #FF5A76;
+  --dark-blue: #3B82F6;
+  --white: #1F2937;
+  --gray-50: #111827;
+  --gray-100: #1F2937;
+  --gray-200: #374151;
+  --gray-300: #4B5563;
+  --gray-400: #6B7280;
+  --gray-500: #9CA3AF;
+  --gray-600: #D1D5DB;
+  --gray-700: #E5E7EB;
+  --gray-800: #F3F4F6;
+  --gray-900: #FFFFFF;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--white);
+  color: var(--gray-900);
+}
+
+/* Custom utility classes */
+.bg-coral { background-color: var(--coral); }
+.text-coral { color: var(--coral); }
+.border-coral { border-color: var(--coral); }
+
+.bg-dark-blue { background-color: var(--dark-blue); }
+.text-dark-blue { color: var(--dark-blue); }
+.border-dark-blue { border-color: var(--dark-blue); }
+
+/* RainbowKit fixes */
+[data-rk] {
+  font-family: inherit !important;
+}
