@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '../../../../lib/supabase';
+import { supabaseAdmin } from '../../../lib/supabase';
 
 // Cache products for 5 minutes
 let productsCache: any[] | null = null;

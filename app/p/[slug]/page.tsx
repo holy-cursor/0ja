@@ -3,8 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { PaymentContract } from '../../../../lib/contract';
-import { checkUSDCBalanceDirectly } from '../../../../lib/usdc-test';
+import { PaymentContract } from '../../../lib/contract';
+import { checkUSDCBalanceDirectly } from '../../../lib/usdc-test';
 import { ethers } from 'ethers';
 import { 
   Download, 
