@@ -41,7 +41,6 @@ const categories = [
 
 const deliveryMethods = [
   { value: 'download', label: 'Direct Download' },
-  { value: 'stream', label: 'Stream Online' },
   { value: 'external', label: 'External Access' }
 ];
 
@@ -76,6 +75,7 @@ export default function CreateProduct() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdProductLink, setCreatedProductLink] = useState('');
   const [isWalletConnected, setIsWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   // Check wallet connection on mount
@@ -85,12 +85,18 @@ export default function CreateProduct() {
         try {
           const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
           setIsWalletConnected(accounts.length > 0);
+          setWalletAddress(accounts[0] || '');
         } catch (error) {
           console.error('Error checking wallet:', error);
         }
       }
     };
     checkWalletConnection();
+    // Coerce any legacy 'stream' selection to 'download'
+    setFormData(prev => ({
+      ...prev,
+      delivery_method: prev.delivery_method === 'stream' ? 'download' : prev.delivery_method
+    }));
   }, []);
 
   // Show wallet modal if trying to submit without wallet connected
@@ -175,40 +181,63 @@ export default function CreateProduct() {
     setIsSubmitting(true);
 
     try {
-      // Create FormData for file uploads
-      const submitData = new FormData();
-      submitData.append('title', formData.title);
-      submitData.append('description', formData.description);
-      submitData.append('price_amount', formData.price_amount);
-      submitData.append('price_token', formData.price_token);
-      submitData.append('category', formData.category);
-      submitData.append('tags', JSON.stringify(formData.tags));
-      submitData.append('delivery_method', formData.delivery_method);
-      submitData.append('product_type', formData.product_type);
-      submitData.append('external_url', formData.external_url);
-      
+      // Helper to upload a single file and return its URL
+      const uploadFileAndGetUrl = async (file: File): Promise<string> => {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('File upload failed');
+        const data = await res.json();
+        return data?.file?.url || '';
+      };
+
+      // Ensure we have the current wallet address
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+          if (accounts && accounts[0]) setWalletAddress(accounts[0]);
+        } catch {}
+      }
+
+      // Resolve media URLs
+      let imageUrl = '';
       if (formData.cover_image) {
-        submitData.append('cover_image', formData.cover_image);
+        imageUrl = await uploadFileAndGetUrl(formData.cover_image);
       }
-      
-      if (formData.file_upload) {
-        submitData.append('file_upload', formData.file_upload);
+
+      let fileUrl = '';
+      if (formData.delivery_method === 'external') {
+        fileUrl = formData.external_url || '';
+      } else if (formData.delivery_method === 'download' && formData.file_upload) {
+        fileUrl = await uploadFileAndGetUrl(formData.file_upload);
       }
+
+      // Build JSON payload expected by API
+      const payload = {
+        creator_wallet: walletAddress,
+        title: formData.title,
+        description: formData.description,
+        price_amount: parseFloat(formData.price_amount || '0'),
+        price_token: formData.price_token,
+        file_url: fileUrl,
+        success_redirect: '',
+        image_url: imageUrl,
+      };
 
       const response = await fetch('/api/products', {
         method: 'POST',
-        body: submitData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
 
-      if (result.success) {
-        // Show success modal with product link
+      if (result?.success && result?.product?.slug) {
         const productLink = `${window.location.origin}/p/${result.product.slug}`;
         setCreatedProductLink(productLink);
         setShowSuccessModal(true);
       } else {
-        console.error('Failed to create product:', result.error);
+        console.error('Failed to create product:', result?.error || 'Unknown error');
       }
     } catch (error) {
       console.error('Error creating product:', error);

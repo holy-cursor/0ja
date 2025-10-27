@@ -68,107 +68,27 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
   const fetchProducts = async () => {
     try {
-      // Mock product data for the category
-      const mockProducts: Product[] = [
-        {
-          id: '1',
-          title: 'Complete Web Development Guide',
-          description: 'Learn full-stack development from scratch with this comprehensive guide.',
-          price_amount: 49.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop',
-          slug: 'complete-web-development-guide',
-          creator_name: 'Sarah Chen',
-          creator_username: 'sarah_dev',
-          creator_avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.8,
-          sales_count: 127,
-          created_at: '2024-01-15T10:30:00Z'
-        },
-        {
-          id: '2',
-          title: 'Advanced React Patterns',
-          description: 'Master advanced React patterns and best practices for scalable applications.',
-          price_amount: 29.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=300&fit=crop',
-          slug: 'advanced-react-patterns',
-          creator_name: 'Mike Johnson',
-          creator_username: 'mike_react',
-          creator_avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.9,
-          sales_count: 89,
-          created_at: '2024-01-10T14:20:00Z'
-        },
-        {
-          id: '3',
-          title: 'JavaScript Mastery Course',
-          description: 'From beginner to expert in JavaScript programming language.',
-          price_amount: 79.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=400&h=300&fit=crop',
-          slug: 'javascript-mastery-course',
-          creator_name: 'Alex Rodriguez',
-          creator_username: 'alex_js',
-          creator_avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.7,
-          sales_count: 203,
-          created_at: '2024-01-08T16:45:00Z'
-        },
-        {
-          id: '4',
-          title: 'Node.js Backend Development',
-          description: 'Build robust backend applications with Node.js and Express.',
-          price_amount: 59.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=300&fit=crop',
-          slug: 'nodejs-backend-development',
-          creator_name: 'Emma Wilson',
-          creator_username: 'emma_node',
-          creator_avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.6,
-          sales_count: 156,
-          created_at: '2024-01-05T09:15:00Z'
-        },
-        {
-          id: '5',
-          title: 'Python Data Science Bootcamp',
-          description: 'Complete data science course using Python and popular libraries.',
-          price_amount: 99.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop',
-          slug: 'python-data-science-bootcamp',
-          creator_name: 'David Kim',
-          creator_username: 'david_python',
-          creator_avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.9,
-          sales_count: 312,
-          created_at: '2024-01-03T11:30:00Z'
-        },
-        {
-          id: '6',
-          title: 'UI/UX Design Fundamentals',
-          description: 'Learn the principles of user interface and user experience design.',
-          price_amount: 39.99,
-          price_token: 'USDC',
-          image_url: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=400&h=300&fit=crop',
-          slug: 'ui-ux-design-fundamentals',
-          creator_name: 'Lisa Park',
-          creator_username: 'lisa_design',
-          creator_avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-          category: params.category,
-          rating: 4.8,
-          sales_count: 178,
-          created_at: '2024-01-01T08:00:00Z'
-        }
-      ];
-
-      setProducts(mockProducts);
+      setLoading(true);
+      const res = await fetch('/api/products', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      const apiProducts: Product[] = (data?.products || []).map((p: any) => ({
+        id: String(p.id ?? ''),
+        title: p.title ?? '',
+        description: p.description ?? '',
+        price_amount: p.price_amount ?? 0,
+        price_token: p.price_token ?? 'USDC',
+        image_url: p.image_url || undefined,
+        slug: p.slug ?? '',
+        creator_name: 'Unknown Creator',
+        creator_username: 'creator',
+        creator_avatar: undefined,
+        category: params.category,
+        rating: undefined,
+        sales_count: 0,
+        created_at: p.created_at ?? new Date().toISOString(),
+      }));
+      setProducts(apiProducts);
     } catch (error) {
       console.error('Failed to fetch products:', error);
     } finally {

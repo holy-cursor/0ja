@@ -54,37 +54,23 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockProducts: Product[] = [
-        {
-          id: '1',
-          title: 'Digital Art Collection',
-          description: 'High-quality digital artwork',
-          price_amount: 25.00,
-          price_token: 'USDC',
-          image_url: '/placeholder-art.jpg',
-          slug: 'digital-art-collection',
-          created_at: new Date().toISOString(),
-          sales_count: 12,
-          revenue: 300.00,
-          status: 'active'
-        },
-        {
-          id: '2',
-          title: 'Music Track Pack',
-          description: 'Royalty-free music tracks',
-          price_amount: 15.00,
-          price_token: 'USDC',
-          image_url: '/placeholder-music.jpg',
-          slug: 'music-track-pack',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          sales_count: 8,
-          revenue: 120.00,
-          status: 'active'
-        }
-      ];
-      
-      setProducts(mockProducts);
+      const res = await fetch('/api/products', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      const apiProducts: Product[] = (data?.products || []).map((p: any) => ({
+        id: String(p.id ?? ''),
+        title: p.title ?? '',
+        description: p.description ?? '',
+        price_amount: p.price_amount ?? 0,
+        price_token: p.price_token ?? 'USDC',
+        image_url: p.image_url || undefined,
+        slug: p.slug ?? '',
+        created_at: p.created_at ?? new Date().toISOString(),
+        sales_count: 0,
+        revenue: 0,
+        status: p.paused ? 'paused' : 'active',
+      }));
+      setProducts(apiProducts);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
