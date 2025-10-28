@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUser } from '@clerk/nextjs';
 import { 
   Upload, 
   File, 
@@ -51,6 +52,7 @@ const productTypes = [
 ];
 
 export default function CreateProduct() {
+  const { isLoaded, user } = useUser();
   const [formData, setFormData] = useState<ProductForm>({
     title: '',
     description: '',
@@ -98,6 +100,39 @@ export default function CreateProduct() {
       delivery_method: prev.delivery_method === 'stream' ? 'download' : prev.delivery_method
     }));
   }, []);
+
+  // Show loading state while Clerk is checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="relative min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show sign in prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="relative min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to create products</h1>
+            <Link 
+              href="/sign-in"
+              className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-base font-semibold text-white bg-coral hover:bg-coral/90 transition"
+            >
+              Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show wallet modal if trying to submit without wallet connected
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -521,21 +556,37 @@ export default function CreateProduct() {
                   Cover Image
                 </label>
                 <div className="border-2 border-dashed border-gray-300 dark:border-white/20 rounded-lg p-6 text-center bg-white dark:bg-transparent">
-                  <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => e.target.files?.[0] && handleFileUpload('cover_image', e.target.files[0])}
-                    className="hidden"
-                    id="cover-image"
-                  />
-                  <label
-                    htmlFor="cover-image"
-                    className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
-                  >
-                    Upload Cover Image
-                  </label>
-                  <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 10MB</p>
+                  {formData.cover_image ? (
+                    <div className="space-y-2">
+                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{formData.cover_image.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('cover_image', null)}
+                        className="text-sm text-red-600 hover:text-red-800 transition"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && handleFileUpload('cover_image', e.target.files[0])}
+                        className="hidden"
+                        id="cover-image"
+                      />
+                      <label
+                        htmlFor="cover-image"
+                        className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
+                      >
+                        Upload Cover Image
+                      </label>
+                      <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 10MB</p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -571,20 +622,37 @@ export default function CreateProduct() {
                     File Upload *
                   </label>
                   <div className="border-2 border-dashed border-gray-300 dark:border-white/20 rounded-lg p-6 text-center bg-white dark:bg-transparent">
-                    <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <input
-                      type="file"
-                      onChange={(e) => e.target.files?.[0] && handleFileUpload('file_upload', e.target.files[0])}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label
-                      htmlFor="file-upload"
-                    className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
-                    >
-                      Upload File
-                    </label>
-                    <p className="text-sm text-gray-500 mt-2">Any file type up to 100MB</p>
+                    {formData.file_upload ? (
+                      <div className="space-y-2">
+                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{formData.file_upload.name}</p>
+                        <p className="text-xs text-gray-500">{(formData.file_upload.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('file_upload', null)}
+                          className="text-sm text-red-600 hover:text-red-800 transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <input
+                          type="file"
+                          onChange={(e) => e.target.files?.[0] && handleFileUpload('file_upload', e.target.files[0])}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
+                        >
+                          Upload File
+                        </label>
+                        <p className="text-sm text-gray-500 mt-2">Any file type up to 100MB</p>
+                      </>
+                    )}
                   </div>
                   {errors.file_upload && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">

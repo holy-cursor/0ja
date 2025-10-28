@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showEmptyStateModal, setShowEmptyStateModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showWalletCheckModal, setShowWalletCheckModal] = useState(false);
 
   const connectWallet = async (): Promise<void> => {
     try {
@@ -48,6 +49,26 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Failed to connect wallet:', err);
+    }
+  };
+
+  const handleCreateClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Check if wallet is connected
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      try {
+        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) {
+          window.location.href = '/create';
+        } else {
+          setShowWalletCheckModal(true);
+        }
+      } catch {
+        setShowWalletCheckModal(true);
+      }
+    } else {
+      setShowWalletCheckModal(true);
     }
   };
 
@@ -156,13 +177,13 @@ export default function Dashboard() {
                 </button>
               )}
               
-              <Link
-                href="/create"
+              <button
+                onClick={handleCreateClick}
                 className="flex items-center space-x-2 px-4 py-2 bg-coral text-white rounded-lg transition hover:bg-coral/90"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create Product</span>
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -243,13 +264,13 @@ export default function Dashboard() {
                 <Package className="w-16 h-16 text-gray-600/40 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No products yet</h3>
                 <p className="text-gray-900/70 dark:text-gray-300 mb-6">Create your first product to start earning.</p>
-                <Link
-                  href="/create"
+                <button
+                  onClick={handleCreateClick}
                   className="inline-flex items-center px-6 py-3 bg-coral text-white rounded-lg font-medium transition hover:bg-coral/90"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Your First Product
-                </Link>
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -334,14 +355,31 @@ export default function Dashboard() {
                 </p>
                 
                 <div className="space-y-3">
-                  <Link
-                    href="/create"
-                    onClick={() => setShowEmptyStateModal(false)}
+                  <button
+                    onClick={async () => {
+                      setShowEmptyStateModal(false);
+                      
+                      // Check if wallet is connected
+                      if (typeof window !== 'undefined' && (window as any).ethereum) {
+                        try {
+                          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+                          if (accounts && accounts.length > 0) {
+                            window.location.href = '/create';
+                          } else {
+                            setShowWalletCheckModal(true);
+                          }
+                        } catch {
+                          setShowWalletCheckModal(true);
+                        }
+                      } else {
+                        setShowWalletCheckModal(true);
+                      }
+                    }}
                     className="w-full bg-[#FF6F61] text-white py-3 rounded-lg hover:opacity-90 transition flex items-center justify-center"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Your First Product
-                  </Link>
+                  </button>
                   <button
                     onClick={() => setShowEmptyStateModal(false)}
                     className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-colors"
@@ -385,6 +423,49 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500 mt-4">
               By connecting your wallet, you agree to our Terms of Service and Privacy Policy.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Check Modal */}
+      {showWalletCheckModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet className="w-8 h-8 text-coral" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                Connect Your Wallet First
+              </h2>
+              <p className="text-gray-600 mb-6">
+                You need to connect your wallet before creating a product to receive payments.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      if (typeof window !== 'undefined' && (window as any).ethereum) {
+                        await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+                        setShowWalletCheckModal(false);
+                        window.location.href = '/create';
+                      }
+                    } catch (error) {
+                      console.error('Failed to connect wallet:', error);
+                    }
+                  }}
+                  className="w-full px-6 py-3 bg-coral text-white rounded-lg font-medium hover:opacity-90 transition"
+                >
+                  Connect MetaMask
+                </button>
+                <button
+                  onClick={() => setShowWalletCheckModal(false)}
+                  className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
