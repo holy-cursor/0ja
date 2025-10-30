@@ -2,8 +2,9 @@
 
 import { SignIn } from '@clerk/nextjs'
 import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
-export default function Page() {
+function SignInContent() {
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get('redirect_url') || '/dashboard';
     
@@ -28,5 +29,20 @@ export default function Page() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading...</p>
+                </div>
+            </div>
+        }>
+            <SignInContent />
+        </Suspense>
     )
 }

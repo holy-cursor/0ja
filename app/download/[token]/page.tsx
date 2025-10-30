@@ -82,11 +82,32 @@ export default function DownloadPage() {
   };
 
   const handleDownload = async () => {
-    if (!product?.file_url) return;
+    if (!product?.file_url || !token) return;
 
     setDownloading(true);
     
     try {
+      // Get signed URL for private file
+      const filePath = product.file_url.startsWith('product-files/') 
+        ? product.file_url 
+        : `product-files/${product.file_url.split('/').pop()}`;
+
+      const signedUrlResponse = await fetch('/api/files/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          filePath,
+          accessToken: token
+        })
+      });
+
+      if (!signedUrlResponse.ok) {
+        const errorData = await signedUrlResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
+      }
+
+      const { signedUrl } = await signedUrlResponse.json();
+
       // Track download
       await fetch('/api/files/download', {
         method: 'POST',
@@ -97,47 +118,19 @@ export default function DownloadPage() {
         })
       });
 
-      // Force download for both local and external files
+      // Download the file using signed URL
       const link = document.createElement('a');
-      
-      if (product.file_url.startsWith('http')) {
-        // For external URLs, we need to fetch the file first to force download
-        try {
-          const response = await fetch(product.file_url);
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          link.href = url;
-          link.download = `${product.title}.${getFileExtension(product.file_url)}`;
-        } catch (err) {
-          // Fallback to direct link
-          link.href = product.file_url;
-          link.download = product.title;
-          link.target = '_blank';
-        }
-      } else {
-        // For local files, use the file serving API
-        const fileName = product.file_url.split('/').pop() || product.title;
-        link.href = `/api/files/serve/${fileName}`;
+      link.href = signedUrl;
         link.download = `${product.title}.${getFileExtension(product.file_url)}`;
-      }
       
       // Add to DOM, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Clean up blob URL if created
-      if (product.file_url.startsWith('http')) {
-        setTimeout(() => {
-          if (link.href.startsWith('blob:')) {
-            window.URL.revokeObjectURL(link.href);
-          }
-        }, 100);
-      }
-      
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download failed:', err);
-      alert('Download failed. Please try again.');
+      alert('Download failed: ' + (err.message || 'Please try again.'));
     } finally {
       setDownloading(false);
     }

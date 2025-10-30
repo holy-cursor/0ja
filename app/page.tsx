@@ -1,13 +1,6 @@
 // sellify/app/page.tsx
-import { redirect } from 'next/navigation';
-import { auth } from '@clerk/nextjs/server';
-
-export default async function Home() {
-  const { userId } = await auth();
-  
-  if (userId) {
-    redirect('/dashboard');
-  }
-  
-  redirect('/landing');
+// Root redirect is now handled in middleware.ts for better reliability
+// This page should not normally render, but serves as a fallback
+export default function Home() {
+  return null;
 }

@@ -291,6 +291,26 @@ export default function PaymentPage({ params }: { params: Promise<{ slug: string
     alert('Copied to clipboard!');
   };
 
+  const handleDownload = async () => {
+    if (!product?.file_url) return;
+    
+    try {
+      // For private files, we need an access token
+      // Redirect to the download page with token instead
+      // This keeps the file URL secure
+      alert('Please use the download link from your payment confirmation email or download page.');
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Download failed. Please try again.');
+    }
+  };
+
+  const getFileExtension = (url: string): string => {
+    const path = url.split('/').pop() || '';
+    const extension = path.split('.').pop() || '';
+    return extension || 'file';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FFF9F4] dark:bg-[#121212] text-[#1F1F1F] dark:text-white flex items-center justify-center">
@@ -355,31 +375,11 @@ export default function PaymentPage({ params }: { params: Promise<{ slug: string
 
             <div className="bg-blue-50 dark:bg-white/5 rounded-lg p-6">
               <h3 className="font-semibold text-blue-900 dark:text-white mb-2">Download Your File</h3>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={product.file_url}
-                  readOnly
-                  className="flex-1 px-3 py-2 bg-white dark:bg-transparent border border-blue-200 dark:border-white/20 rounded-lg text-sm font-mono"
-                />
-                <button
-                  onClick={() => copyToClipboard(product.file_url)}
-                  className="px-4 py-2 bg-[#3EA8FF] text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
-                >
-                  Copy Link
-                </button>
-                <a
-                  href={product.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center"
-                >
-                  <Download className="w-4 h-4 mr-1" />
-                  Download
-                </a>
-              </div>
-              <p className="text-xs text-blue-700 dark:text-gray-300 mt-2">
-                Click download to access your purchased file
+              <p className="text-sm text-blue-700 dark:text-gray-300 mb-4">
+                You will be redirected to the secure download page shortly. Files are stored securely and require authentication to access.
+              </p>
+              <p className="text-xs text-blue-600 dark:text-gray-400 text-center">
+                If you're not redirected automatically, check your email for the download link.
               </p>
             </div>
 

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Mock database - in production, use Supabase or your database
-const fileAccess = new Map();
+import { supabaseAdmin } from '../../../../lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,38 +11,59 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const accessRecord = fileAccess.get(accessToken);
+    // Fetch access record from Supabase
+    const { data: accessRecord, error: fetchError } = await supabaseAdmin
+      .from('file_access')
+      .select('*')
+      .eq('access_token', accessToken)
+      .eq('product_id', productId)
+      .single();
 
-    if (!accessRecord) {
+    if (fetchError || !accessRecord) {
       return NextResponse.json({ 
         error: 'Invalid access token' 
       }, { status: 404 });
     }
 
     // Check if token is expired
-    if (new Date() > new Date(accessRecord.expiresAt)) {
-      fileAccess.delete(accessToken);
+    if (new Date() > new Date(accessRecord.expires_at)) {
+      // Delete expired token
+      await supabaseAdmin
+        .from('file_access')
+        .delete()
+        .eq('access_token', accessToken);
+      
       return NextResponse.json({ 
         error: 'Access token has expired' 
       }, { status: 410 });
     }
 
     // Increment download count
-    accessRecord.downloadCount += 1;
-    fileAccess.set(accessToken, accessRecord);
+    const { data: updatedRecord, error: updateError } = await supabaseAdmin
+      .from('file_access')
+      .update({ download_count: accessRecord.download_count + 1 })
+      .eq('access_token', accessToken)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Download count update error:', updateError);
+      // Still return success if download tracking fails
+    }
 
     // Log download event
-    console.log(`Download tracked: Product ${productId}, Token ${accessToken}, Count: ${accessRecord.downloadCount}`);
+    console.log(`Download tracked: Product ${productId}, Token ${accessToken}, Count: ${updatedRecord?.download_count || accessRecord.download_count + 1}`);
 
     return NextResponse.json({
       success: true,
-      downloadCount: accessRecord.downloadCount
+      downloadCount: updatedRecord?.download_count || accessRecord.download_count + 1
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Download tracking error:', error);
     return NextResponse.json({ 
-      error: 'Failed to track download' 
+      error: 'Failed to track download',
+      details: error.message
     }, { status: 500 });
   }
 }

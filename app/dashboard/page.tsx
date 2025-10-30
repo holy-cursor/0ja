@@ -17,7 +17,8 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react";
 
 interface Product {
@@ -46,6 +47,10 @@ export default function Dashboard() {
     try {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        // Refresh products after wallet connection
+        await fetchDashboardData();
+        // After connecting wallet and fetching products, check if we should show empty state
+        // This will be handled by the useEffect that watches products.length, but we trigger it
       }
     } catch (err) {
       console.error('Failed to connect wallet:', err);
@@ -75,9 +80,27 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/products', { cache: 'no-store' });
+      
+      // Get wallet address to filter products
+      let walletAddress = null;
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+          walletAddress = accounts?.[0];
+        } catch (err) {
+          console.error('Failed to get wallet:', err);
+        }
+      }
+      
+      // Fetch products filtered by wallet address
+      const url = walletAddress 
+        ? `/api/products?creator_wallet=${encodeURIComponent(walletAddress)}`
+        : '/api/products';
+      
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch products');
       const data = await res.json();
+      
       const apiProducts: Product[] = (data?.products || []).map((p: any) => ({
         id: String(p.id ?? ''),
         title: p.title ?? '',
@@ -87,11 +110,19 @@ export default function Dashboard() {
         image_url: p.image_url || undefined,
         slug: p.slug ?? '',
         created_at: p.created_at ?? new Date().toISOString(),
-        sales_count: 0,
-        revenue: 0,
+        sales_count: p.sales_count ?? 0, // Use from API
+        revenue: p.revenue ?? 0, // Use from API
         status: p.paused ? 'paused' : 'active',
       }));
+      
       setProducts(apiProducts);
+      
+      // Log for debugging
+      if (walletAddress) {
+        console.log(`Fetched ${apiProducts.length} products for wallet: ${walletAddress}`);
+      } else {
+        console.log('No wallet connected, showing all products (will be empty if none)');
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -101,12 +132,31 @@ export default function Dashboard() {
 
   useEffect(() => {
       fetchDashboardData();
+    
+    // Listen for wallet connection changes and refresh products
+    const handleAccountsChanged = () => {
+      fetchDashboardData();
+    };
+    
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
   }, []);
 
-  // Show empty state modal if user has no products
+  // Show empty state modal if user has no products (regardless of wallet connection)
   useEffect(() => {
     if (!loading && products.length === 0) {
+      // Show empty state modal - it will handle wallet connection if needed
       setShowEmptyStateModal(true);
+    } else if (products.length > 0) {
+      // User has products, don't show empty state
+      setShowEmptyStateModal(false);
     }
   }, [loading, products.length]);
 
@@ -309,7 +359,7 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-4 flex justify-end">
                       <Link
-                        href={`/p/${product.slug}`}
+                        href={`/dashboard/products/${product.slug}`}
                         className="text-coral hover:text-coral/80 text-sm font-medium"
                       >
                         View Product
@@ -393,39 +443,101 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* Wallet Connection Modal */}
+      <AnimatePresence>
       {showWalletModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/90 backdrop-blur-xl border border-white/60 rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Wallet className="w-8 h-8 text-[#C9A0FF]" />
-            </div>
-            <h3 className="text-xl font-semibold text-[#333333] mb-2">Connect Your Wallet</h3>
-            <p className="text-gray-600 mb-6">
-              Connect your crypto wallet to receive payments and manage your earnings securely.
-            </p>
-            
-            <div className="space-y-3">
-              <button
-                onClick={async () => { await connectWallet(); setShowWalletModal(false); }}
-                className="w-full bg-[#FF6F61] text-white py-3 rounded-lg transition hover:opacity-90 flex items-center justify-center"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Connect MetaMask
-              </button>
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowWalletModal(false)}
+            />
+
+            {/* Modal */}
+            <motion.div
+              className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.5 }}
+            >
+              {/* Close button */}
               <button
                 onClick={() => setShowWalletModal(false)}
-                className="w-full border border-white/60 bg-white/70 text-gray-800 py-3 rounded-lg hover:bg-white transition"
+                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-10"
               >
-                Cancel
+                <X className="w-5 h-5 text-gray-500" />
               </button>
-            </div>
-            
-            <p className="text-xs text-gray-500 mt-4">
-              By connecting your wallet, you agree to our Terms of Service and Privacy Policy.
-            </p>
-          </div>
-        </div>
-      )}
+
+              {/* Content */}
+              <div className="p-8 text-center">
+                {/* Icon */}
+                <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Wallet className="w-12 h-12 text-coral" />
+                </div>
+
+                {/* Title & Description */}
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                  Connect Your Wallet
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Connect your wallet to view your products, receive payments, and manage your earnings securely.
+                </p>
+
+                {/* Features */}
+                <div className="space-y-2 mb-8">
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
+                    <span>View and manage your products</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
+                    <span>Receive payments in crypto</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
+                    <span>Instant settlements</span>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
+                    <span>No bank accounts needed</span>
+                  </div>
+                </div>
+
+                {/* Connect Wallet Button */}
+                <div className="space-y-3">
+                  <button
+                    onClick={async () => {
+                      await connectWallet();
+                      setShowWalletModal(false);
+                    }}
+                    className="w-full px-6 py-3 bg-coral text-white rounded-lg font-medium hover:opacity-90 transition"
+                  >
+                    Connect MetaMask
+                  </button>
+
+                  <button
+                    onClick={() => setShowWalletModal(false)}
+                    className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                  >
+                    Maybe Later
+                  </button>
+                </div>
+
+                {/* Footer */}
+                <p className="text-xs text-gray-500 mt-6">
+                  By connecting, you agree to receive payments via your connected wallet.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Wallet Check Modal */}
       {showWalletCheckModal && (
@@ -434,15 +546,15 @@ export default function Dashboard() {
             <div className="text-center">
               <div className="w-16 h-16 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Wallet className="w-8 h-8 text-coral" />
-              </div>
+            </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-3">
                 Connect Your Wallet First
               </h2>
-              <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-6">
                 You need to connect your wallet before creating a product to receive payments.
-              </p>
-              <div className="space-y-3">
-                <button
+            </p>
+            <div className="space-y-3">
+              <button
                   onClick={async () => {
                     try {
                       if (typeof window !== 'undefined' && (window as any).ethereum) {
@@ -455,16 +567,16 @@ export default function Dashboard() {
                     }
                   }}
                   className="w-full px-6 py-3 bg-coral text-white rounded-lg font-medium hover:opacity-90 transition"
-                >
-                  Connect MetaMask
-                </button>
-                <button
+              >
+                Connect MetaMask
+              </button>
+              <button
                   onClick={() => setShowWalletCheckModal(false)}
                   className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-              </div>
+              >
+                Cancel
+              </button>
+            </div>
             </div>
           </div>
         </div>

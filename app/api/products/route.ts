@@ -112,22 +112,32 @@ export async function GET(request: NextRequest) {
   try {
     console.log('API GET request received');
     
-    // Check for cache clear parameter
+    // Check for cache clear parameter and creator wallet filter
     const { searchParams } = new URL(request.url);
     const clearCache = searchParams.get('clear') === 'true';
+    const creatorWallet = searchParams.get('creator_wallet');
     
-    // Check cache
-    const now = Date.now();
-    if (!clearCache && productsCache && (now - cacheTimestamp) < CACHE_DURATION) {
+    // If filtering by creator wallet, don't use cache
+    const shouldUseCache = !creatorWallet && !clearCache && productsCache && (Date.now() - cacheTimestamp) < CACHE_DURATION;
+    
+    if (shouldUseCache) {
       console.log('Returning cached products');
       return NextResponse.json({ products: productsCache });
     }
     
-    // Fetch products from Supabase
-    const { data: allProducts, error } = await supabaseAdmin
+    // Build query with optional creator wallet filter
+    let query = supabaseAdmin
       .from('products')
       .select('*')
-      .eq('paused', false)
+      .eq('paused', false);
+    
+    if (creatorWallet) {
+      query = query.eq('creator_wallet', creatorWallet);
+      console.log('Filtering products by creator_wallet:', creatorWallet);
+    }
+    
+    // Fetch products from Supabase
+    const { data: allProducts, error } = await query
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -138,14 +148,48 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('Returning', allProducts?.length || 0, 'products');
+    // If filtering by creator wallet, fetch payment data and calculate sales stats
+    let productsWithSales = allProducts || [];
+    if (creatorWallet && allProducts && allProducts.length > 0) {
+      const productIds = allProducts.map(p => p.id);
+      
+      // Fetch all payments for these products
+      const { data: payments, error: paymentsError } = await supabaseAdmin
+        .from('payments')
+        .select('product_id, creator_amount')
+        .in('product_id', productIds);
+      
+      if (!paymentsError && payments) {
+        // Calculate sales_count and revenue per product
+        const salesMap = payments.reduce((acc, payment) => {
+          const productId = payment.product_id;
+          if (!acc[productId]) {
+            acc[productId] = { sales_count: 0, revenue: 0 };
+          }
+          acc[productId].sales_count += 1;
+          acc[productId].revenue += parseFloat(payment.creator_amount || 0);
+          return acc;
+        }, {} as Record<string, { sales_count: number; revenue: number }>);
+        
+        // Add sales data to products
+        productsWithSales = allProducts.map(product => ({
+          ...product,
+          sales_count: salesMap[product.id]?.sales_count || 0,
+          revenue: salesMap[product.id]?.revenue || 0,
+        }));
+      }
+    }
+
+    console.log('Returning', productsWithSales?.length || 0, 'products');
     
-    // Update cache
-    productsCache = allProducts || [];
-    cacheTimestamp = now;
+    // Update cache only if not filtering by creator (for general product listing)
+    if (!creatorWallet) {
+      productsCache = allProducts || [];
+      cacheTimestamp = Date.now();
+    }
     
-    // Return all products
-    const response = NextResponse.json({ products: allProducts || [] });
+    // Return products (with sales data if creator wallet filter was used)
+    const response = NextResponse.json({ products: productsWithSales });
     
     // Add caching headers
     response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300');

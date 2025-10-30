@@ -2,11 +2,12 @@
 
 import { SignUp } from '@clerk/nextjs'
 import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
-export default function Page() {
+function SignUpContent() {
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get('redirect_url') || '/dashboard';
-    
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
             <div className="w-full max-w-md">
@@ -15,7 +16,7 @@ export default function Page() {
                     <p className="text-gray-600">Start selling your digital products today</p>
                 </div>
                 <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
-                    <SignUp 
+                    <SignUp
                         forceRedirectUrl={redirectUrl}
                         signInUrl="/sign-in"
                         appearance={{
@@ -28,5 +29,20 @@ export default function Page() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading...</p>
+                </div>
+            </div>
+        }>
+            <SignUpContent />
+        </Suspense>
     )
 }

@@ -86,10 +86,40 @@ const nextConfig: NextConfig = {
       };
     }
     
-    // Faster builds
+    // Faster builds with better caching
     config.watchOptions = {
       poll: 1000,
       aggregateTimeout: 300,
+      ignored: ['**/node_modules', '**/.next'],
+    };
+    
+    // Optimize chunk splitting for better caching
+    config.optimization = config.optimization || {};
+    config.optimization.splitChunks = {
+      chunks: 'all',
+      cacheGroups: {
+        default: false,
+        vendors: false,
+        // Cache vendor chunks separately
+        ethers: {
+          name: 'ethers',
+          test: /[\\/]node_modules[\\/](ethers|@ethersproject)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        wagmi: {
+          name: 'wagmi',
+          test: /[\\/]node_modules[\\/](wagmi|@rainbow-me|viem)[\\/]/,
+          chunks: 'all',
+          priority: 20,
+        },
+        supabase: {
+          name: 'supabase',
+          test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+          chunks: 'all',
+          priority: 10,
+        },
+      },
     };
     
     // Ignore problematic modules

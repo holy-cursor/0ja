@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navigation from "./components/Navigation";
 import { ClerkProvider } from '@clerk/nextjs';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: "0ja — The crypto street market for digital products",
@@ -31,13 +32,16 @@ export default function RootLayout({
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
+      fallbackRedirectUrl="/dashboard"
     >
       <html lang="en">
         <body className="font-sans">
+          <Providers>
           <Navigation />
           <main className="min-h-screen pb-14 md:pb-0 safe-bottom">
             {children}
           </main>
+          </Providers>
         </body>
       </html>
     </ClerkProvider>

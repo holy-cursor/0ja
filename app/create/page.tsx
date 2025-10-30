@@ -73,33 +73,78 @@ export default function CreateProduct() {
   const [tagInput, setTagInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false); // Start false, check from DB
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdProductLink, setCreatedProductLink] = useState('');
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
-  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [checkingTutorial, setCheckingTutorial] = useState(true);
 
-  // Check wallet connection on mount
+  // Check wallet connection and tutorial status from database on mount
   useEffect(() => {
-    const checkWalletConnection = async () => {
+    const checkWalletAndTutorial = async () => {
+      setCheckingTutorial(true);
+      
+      // Check wallet connection
+      let wallet = '';
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         try {
           const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
           setIsWalletConnected(accounts.length > 0);
-          setWalletAddress(accounts[0] || '');
+          wallet = accounts[0] || '';
+          setWalletAddress(wallet);
         } catch (error) {
           console.error('Error checking wallet:', error);
         }
       }
-    };
-    checkWalletConnection();
+
+      // Check if user has products OR if tutorial was dismissed in database
+      if (wallet && user) {
+        try {
+          // Check if user has products first
+          const productsResponse = await fetch(`/api/products?creator_wallet=${encodeURIComponent(wallet)}`);
+          const productsData = await productsResponse.json();
+          const hasProducts = productsData?.products && productsData.products.length > 0;
+
+          if (hasProducts) {
+            // User has products, don't show tutorial
+            setShowTutorial(false);
+          } else {
+            // No products, check database for tutorial dismissal
+            const settingsResponse = await fetch(`/api/user-settings?wallet_address=${encodeURIComponent(wallet)}`);
+            const settingsData = await settingsResponse.json();
+            
+            if (settingsData.success && settingsData.settings) {
+              // Tutorial dismissed in DB, don't show it
+              setShowTutorial(!settingsData.settings.tutorial_dismissed);
+            } else {
+              // No settings found, show tutorial (first time user)
+              setShowTutorial(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking tutorial status:', error);
+          // On error, default to showing tutorial
+          setShowTutorial(true);
+        }
+      } else {
+        // No wallet connected, show tutorial
+        setShowTutorial(true);
+      }
+      
+      setCheckingTutorial(false);
+      
     // Coerce any legacy 'stream' selection to 'download'
     setFormData(prev => ({
       ...prev,
       delivery_method: prev.delivery_method === 'stream' ? 'download' : prev.delivery_method
     }));
-  }, []);
+    };
+
+    if (user) {
+      checkWalletAndTutorial();
+    }
+  }, [user]);
 
   // Show loading state while Clerk is checking authentication
   if (!isLoaded) {
@@ -134,12 +179,13 @@ export default function CreateProduct() {
     );
   }
 
-  // Show wallet modal if trying to submit without wallet connected
+  // Redirect to dashboard if wallet not connected
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isWalletConnected) {
-      setShowWalletModal(true);
+      alert('Please connect your wallet on the dashboard first. Redirecting...');
+      window.location.href = '/dashboard';
       return;
     }
     
@@ -209,7 +255,8 @@ export default function CreateProduct() {
 
     // Check if wallet is connected before submitting
     if (!isWalletConnected) {
-      setShowWalletModal(true);
+      alert('Please connect your wallet on the dashboard first. Redirecting...');
+      window.location.href = '/dashboard';
       return;
     }
 
@@ -570,21 +617,21 @@ export default function CreateProduct() {
                     </div>
                   ) : (
                     <>
-                      <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload('cover_image', e.target.files[0])}
-                        className="hidden"
-                        id="cover-image"
-                      />
-                      <label
-                        htmlFor="cover-image"
-                        className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
-                      >
-                        Upload Cover Image
-                      </label>
-                      <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 10MB</p>
+                  <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => e.target.files?.[0] && handleFileUpload('cover_image', e.target.files[0])}
+                    className="hidden"
+                    id="cover-image"
+                  />
+                  <label
+                    htmlFor="cover-image"
+                    className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
+                  >
+                    Upload Cover Image
+                  </label>
+                  <p className="text-sm text-gray-500 mt-2">PNG, JPG up to 10MB</p>
                     </>
                   )}
                 </div>
@@ -637,20 +684,20 @@ export default function CreateProduct() {
                       </div>
                     ) : (
                       <>
-                        <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <input
-                          type="file"
-                          onChange={(e) => e.target.files?.[0] && handleFileUpload('file_upload', e.target.files[0])}
-                          className="hidden"
-                          id="file-upload"
-                        />
-                        <label
-                          htmlFor="file-upload"
-                          className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
-                        >
-                          Upload File
-                        </label>
-                        <p className="text-sm text-gray-500 mt-2">Any file type up to 100MB</p>
+                    <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <input
+                      type="file"
+                      onChange={(e) => e.target.files?.[0] && handleFileUpload('file_upload', e.target.files[0])}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                    className="cursor-pointer bg-[#FF5A76] hover:opacity-90 text-white px-4 py-2 rounded-lg transition"
+                    >
+                      Upload File
+                    </label>
+                    <p className="text-sm text-gray-500 mt-2">Any file type up to 100MB</p>
                       </>
                     )}
                   </div>
@@ -770,13 +817,47 @@ export default function CreateProduct() {
 
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => setShowTutorial(false)}
+                onClick={async () => {
+                  // Save tutorial dismissal to database
+                  if (walletAddress) {
+                    try {
+                      await fetch('/api/user-settings', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          wallet_address: walletAddress,
+                          tutorial_dismissed: true
+                        })
+                      });
+                    } catch (error) {
+                      console.error('Failed to save tutorial dismissal:', error);
+                    }
+                  }
+                  setShowTutorial(false);
+                }}
                 className="px-6 py-2 border border-white/60 bg-white/70 text-gray-800 rounded-lg hover:bg-white transition"
               >
                 Skip Tutorial
               </button>
               <button
-                onClick={() => setShowTutorial(false)}
+                onClick={async () => {
+                  // Save tutorial dismissal to database
+                  if (walletAddress) {
+                    try {
+                      await fetch('/api/user-settings', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          wallet_address: walletAddress,
+                          tutorial_dismissed: true
+                        })
+                      });
+                    } catch (error) {
+                      console.error('Failed to save tutorial dismissal:', error);
+                    }
+                  }
+                  setShowTutorial(false);
+                }}
                 className="px-6 py-2 bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition"
               >
                 Let's Start!
@@ -834,104 +915,6 @@ export default function CreateProduct() {
         </div>
       )}
 
-      {/* Wallet Connection Modal */}
-      <AnimatePresence>
-        {showWalletModal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowWalletModal(false)}
-            />
-
-            {/* Modal */}
-            <motion.div
-              className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", duration: 0.5 }}
-            >
-              {/* Close button */}
-              <button
-                onClick={() => setShowWalletModal(false)}
-                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-10"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-
-              {/* Content */}
-              <div className="p-8 text-center">
-                {/* Icon */}
-                <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Wallet className="w-12 h-12 text-coral" />
-                </div>
-
-                {/* Title & Description */}
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                  Connect Your Wallet
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  You need to connect your wallet before creating a product to receive payments.
-                </p>
-
-                {/* Features */}
-                <div className="space-y-2 mb-8">
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
-                    <span>Receive payments in crypto</span>
-                  </div>
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
-                    <span>Instant settlements</span>
-                  </div>
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <div className="w-1.5 h-1.5 bg-coral rounded-full"></div>
-                    <span>No bank accounts needed</span>
-                  </div>
-                </div>
-
-                {/* Connect Wallet Button */}
-                <div className="space-y-3">
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (typeof window !== 'undefined' && (window as any).ethereum) {
-                          await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-                          setIsWalletConnected(true);
-                          setShowWalletModal(false);
-                        }
-                      } catch (error) {
-                        console.error('Failed to connect wallet:', error);
-                      }
-                    }}
-                    className="w-full px-6 py-3 bg-coral text-white rounded-lg font-medium hover:opacity-90 transition"
-                  >
-                    Connect MetaMask
-                  </button>
-
-                  <button
-                    onClick={() => setShowWalletModal(false)}
-                    className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
-                  >
-                    Maybe Later
-                  </button>
-                </div>
-
-                {/* Footer */}
-                <p className="text-xs text-gray-500 mt-6">
-                  By connecting, you agree to receive payments via your connected wallet.
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
